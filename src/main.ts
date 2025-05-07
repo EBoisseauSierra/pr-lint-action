@@ -95,12 +95,17 @@ const getExistingComments = async (pullRequest: {
     repo: pullRequest.repo,
     issue_number: pullRequest.number,
   });
+  console.log(`Found ${comments.data.length} comments`);
+  console.log(`Filtering comments created by the bot`);
 
-  return comments.data.filter(
+  const bot_comment = comments.data.filter(
     (comment: { user: { login: string } | null }) => {
       return comment.user !== null && isGitHubActionUser(comment.user.login);
     },
   );
+
+  console.log(`Found ${bot_comment.length} comments created by the bot`);
+  return bot_comment;
 };
 
 // Get a comment's global node ID using GraphQL
