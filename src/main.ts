@@ -90,22 +90,35 @@ const getExistingComments = async (pullRequest: {
   number: number;
 }) => {
   console.log(`Getting comments for PR #${pullRequest.number}`);
-  const comments = await octokit.rest.issues.listComments({
+
+  // Get review comments instead of issue comments
+  const reviewComments = await octokit.rest.pulls.listReviewComments({
+    owner: pullRequest.owner,
+    repo: pullRequest.repo,
+    pull_number: pullRequest.number,
+  });
+  console.log(`Found ${reviewComments.data.length} review comments`);
+
+  // Also get regular comments as a fallback
+  const issueComments = await octokit.rest.issues.listComments({
     owner: pullRequest.owner,
     repo: pullRequest.repo,
     issue_number: pullRequest.number,
   });
-  console.log(`Found ${comments.data.length} comments`);
+  console.log(`Found ${issueComments.data.length} issue comments`);
+
+  // Combine both types of comments
+  const allComments = [...reviewComments.data, ...issueComments.data];
   console.log(`Filtering comments created by the bot`);
 
-  const bot_comment = comments.data.filter(
+  const bot_comments = allComments.filter(
     (comment: { user: { login: string } | null }) => {
       return comment.user !== null && isGitHubActionUser(comment.user.login);
     },
   );
 
-  console.log(`Found ${bot_comment.length} comments created by the bot`);
-  return bot_comment;
+  console.log(`Found ${bot_comments.length} comments created by the bot`);
+  return bot_comments;
 };
 
 // Get a comment's global node ID using GraphQL
