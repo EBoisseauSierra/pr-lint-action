@@ -50,7 +50,6 @@ export async function run(): Promise<void> {
     }
 
     if (onSucceededRegexMinimizeComment) {
-      debug(`Minimizing existing comments on PR #${pullRequest.number} - debug`);
       console.log(
         `Minimizing existing comments on PR #${pullRequest.number} - log`,
       );
@@ -90,7 +89,7 @@ const getExistingComments = async (pullRequest: {
   repo: string;
   number: number;
 }) => {
-  debug(`Getting comments for PR #${pullRequest.number}`);
+  console.log(`Getting comments for PR #${pullRequest.number}`);
   const comments = await octokit.rest.issues.listComments({
     owner: pullRequest.owner,
     repo: pullRequest.repo,
@@ -151,15 +150,22 @@ const getCommentNodeId = async (
     });
 
     const issueOrPR = repository?.issueOrPullRequest;
-    if (!issueOrPR) return null;
-
+    if (!issueOrPR) {
+      console.log(`No issue or PR found for number ${pullRequest.number}`);
+      return null;
+    }
     const comments = issueOrPR.comments.nodes;
     if (comments && comments.length > 0) {
+      if (comments.length > 1) {
+        console.log(`Found multiple comments with the same database ID: ${commentDatabaseId}`);
+      }
+      console.log(`Found comment with node ID: ${comments[0].id}`);
       return comments[0].id;
     }
+    console.log(`No comments found with database ID: ${commentDatabaseId}`);
     return null;
   } catch (error) {
-    debug(`Error fetching comment node ID: ${error instanceof Error ? error.message : String(error)}`);
+    console.log(`Error fetching comment node ID: ${error instanceof Error ? error.message : String(error)}`);
     return null;
   }
 };
@@ -170,16 +176,16 @@ const minimizeExistingComments = async (pullRequest: {
   repo: string;
   number: number;
 }) => {
-  debug(`Minimizing existing comments on PR #${pullRequest.number}`);
+  console.log(`Minimizing existing comments on PR #${pullRequest.number}`);
   const comments = await getExistingComments(pullRequest);
 
   for (const comment of comments) {
-    debug(`Processing comment with database ID: ${comment.id}`);
+    console.log(`Processing comment with database ID: ${comment.id}`);
     const nodeId = await getCommentNodeId(comment.id, pullRequest);
     if (nodeId) {
       await minimizeComment(nodeId, pullRequest);
     } else {
-      debug(`Could not find node ID for comment ${comment.id}`);
+      console.log(`Could not find node ID for comment ${comment.id}`);
     }
   }
 };
@@ -194,7 +200,7 @@ const minimizeComment = async (
   }
 ) => {
   try {
-    debug(`Minimizing comment with node ID: ${commentNodeId}`);
+    console.log(`Minimizing comment with node ID: ${commentNodeId}`);
     const { minimizeComment: result } = await octokit.graphql<{
       minimizeComment: {
         minimizedComment: {
@@ -219,11 +225,11 @@ const minimizeComment = async (
       },
     });
 
-    debug(`Comment minimized successfully: ${JSON.stringify(result)}`);
+    console.log(`Comment minimized successfully: ${JSON.stringify(result)}`);
   } catch (error) {
-    debug(`Failed to minimize comment: ${error instanceof Error ? error.message : String(error)}`);
+    console.log(`Failed to minimize comment: ${error instanceof Error ? error.message : String(error)}`);
     if (error instanceof Error && error.stack) {
-      debug(`Stack trace: ${error.stack}`);
+      console.log(`Stack trace: ${error.stack}`);
     }
   }
 };
