@@ -50,6 +50,10 @@ export async function run(): Promise<void> {
     }
 
     if (onSucceededRegexMinimizeComment) {
+      debug(`Minimizing existing comments on PR #${pullRequest.number} - debug`);
+      console.log(
+        `Minimizing existing comments on PR #${pullRequest.number} - log`,
+      );
       await minimizeExistingComments(pullRequest);
     }
   }
