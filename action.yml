@@ -40,9 +40,9 @@ inputs:
     required: false
     default: true
   on-minimize-comment-reason:
-    description: "The reason for minimizing a comment when the PR title passes regex validation. (One of 'abuse', 'off-topic', 'outdated', 'resolved', 'duplicate' and 'spam'."
+    description: "The reason for minimizing a comment when the PR title passes regex validation. (One of 'ABUSE', 'OFF_TOPIC', 'OUTDATED', 'RESOLVED', 'DUPLICATE' and 'SPAM'."
     required: false
-    default: "resolved"
+    default: "RESOLVED"
   repo-token:
     description: "Github token with access to the repository (secrets.GITHUB_TOKEN)."
     required: true

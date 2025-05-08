@@ -21,7 +21,7 @@ const onSucceededRegexDismissReviewComment: string = getInput(
 );
 const onSucceededRegexMinimizeComment: boolean =
   getInput("on-succeeded-regex-minimize-comment") === "true";
-const onMinimizeCommentReason: string = getInput("on-minimize-comment-reason") || "resolved";
+const onMinimizeCommentReason: string = getInput("on-minimize-comment-reason") || "RESOLVED";
 
 const octokit = getOctokit(repoToken);
 
