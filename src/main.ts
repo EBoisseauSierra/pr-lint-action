@@ -47,14 +47,14 @@ export async function run(): Promise<void> {
   } else {
     if (onFailedRegexCreateReview) {
       await dismissReview(pullRequest);
+      if (onSucceededRegexMinimizeComment) {
+        console.log(
+          `Minimizing existing comments on PR #${pullRequest.number} - log`,
+        );
+        await minimizeExistingComments(pullRequest);
+      }
     }
 
-    if (onSucceededRegexMinimizeComment) {
-      console.log(
-        `Minimizing existing comments on PR #${pullRequest.number} - log`,
-      );
-      await minimizeExistingComments(pullRequest);
-    }
   }
 }
 
