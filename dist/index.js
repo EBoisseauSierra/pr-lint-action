@@ -21,7 +21,7 @@ const onFailedRegexRequestChanges = (0, core_1.getInput)("on-failed-regex-reques
 const onFailedRegexComment = (0, core_1.getInput)("on-failed-regex-comment");
 const onSucceededRegexDismissReviewComment = (0, core_1.getInput)("on-succeeded-regex-dismiss-review-comment");
 const onSucceededRegexMinimizeComment = (0, core_1.getInput)("on-succeeded-regex-minimize-comment") === "true";
-const onMinimizeCommentReason = (0, core_1.getInput)("on-minimize-comment-reason") || "resolved";
+const onMinimizeCommentReason = (0, core_1.getInput)("on-minimize-comment-reason") || "RESOLVED";
 const octokit = (0, github_1.getOctokit)(repoToken);
 async function run() {
     const githubContext = github_1.context;
@@ -44,14 +44,14 @@ async function run() {
             console.log(`PR title matches regex, dismissing any existing reviews`);
             await dismissReview(pullRequest);
             if (onSucceededRegexMinimizeComment) {
-                console.log(`Attempting to minimize reviews and comments`);
-                await minimizeExistingComments(pullRequest);
+                console.log(`Minimize review`);
+                await minimizeReview(pullRequest);
             }
         }
     }
 }
 const createOrUpdateReview = async (comment, pullRequest) => {
-    const review = await getExistingReview(pullRequest);
+    const review = await getReview(pullRequest);
     if (review === undefined) {
         await octokit.rest.pulls.createReview({
             owner: pullRequest.owner,
@@ -74,7 +74,7 @@ const createOrUpdateReview = async (comment, pullRequest) => {
 const isGitHubActionUser = (login) => {
     return login === GITHUB_ACTIONS_BOT;
 };
-const getExistingReview = async (pullRequest) => {
+const getReview = async (pullRequest) => {
     const reviews = await octokit.rest.pulls.listReviews({
         owner: pullRequest.owner,
         repo: pullRequest.repo,
@@ -83,7 +83,7 @@ const getExistingReview = async (pullRequest) => {
     return reviews.data.find((review) => review.user && isGitHubActionUser(review.user.login));
 };
 const dismissReview = async (pullRequest) => {
-    const review = await getExistingReview(pullRequest);
+    const review = await getReview(pullRequest);
     if (review) {
         console.log(`Found existing review with ID: ${review.id}, state: ${review.state}`);
         if (review.state === "APPROVED" || review.state === "CHANGES_REQUESTED") {
@@ -130,78 +130,6 @@ const dismissReview = async (pullRequest) => {
         console.log(`No review found to dismiss for PR #${pullRequest.number}`);
     }
 };
-const getExistingComments = async (pullRequest) => {
-    console.log(`Getting comments for PR #${pullRequest.number}`);
-    const reviewComments = await octokit.rest.pulls.listReviewComments({
-        owner: pullRequest.owner,
-        repo: pullRequest.repo,
-        pull_number: pullRequest.number,
-    });
-    console.log(`Found ${reviewComments.data.length} review comments`);
-    const issueComments = await octokit.rest.issues.listComments({
-        owner: pullRequest.owner,
-        repo: pullRequest.repo,
-        issue_number: pullRequest.number,
-    });
-    console.log(`Found ${issueComments.data.length} issue comments`);
-    const allComments = [...reviewComments.data, ...issueComments.data];
-    console.log(`Filtering comments created by the bot`);
-    const bot_comments = allComments.filter((comment) => {
-        return comment.user !== null && isGitHubActionUser(comment.user.login);
-    });
-    console.log(`Found ${bot_comments.length} comments created by the bot`);
-    return bot_comments;
-};
-const getCommentNodeId = async (commentDatabaseId, pullRequest) => {
-    try {
-        const { repository } = await octokit.graphql(`
-      query GetCommentNodeId($owner: String!, $repo: String!, $prNumber: Int!, $commentDatabaseId: Int!) {
-        repository(owner: $owner, name: $repo) {
-          issueOrPullRequest(number: $prNumber) {
-            ... on Issue {
-              comments(first: 1, where: {databaseId: $commentDatabaseId}) {
-                nodes {
-                  id
-                }
-              }
-            }
-            ... on PullRequest {
-              comments(first: 1, where: {databaseId: $commentDatabaseId}) {
-                nodes {
-                  id
-                }
-              }
-            }
-          }
-        }
-      }
-    `, {
-            owner: pullRequest.owner,
-            repo: pullRequest.repo,
-            prNumber: pullRequest.number,
-            commentDatabaseId: commentDatabaseId,
-        });
-        const issueOrPR = repository?.issueOrPullRequest;
-        if (!issueOrPR) {
-            console.log(`No issue or PR found for number ${pullRequest.number}`);
-            return null;
-        }
-        const comments = issueOrPR.comments.nodes;
-        if (comments && comments.length > 0) {
-            if (comments.length > 1) {
-                console.log(`Found multiple comments with the same database ID: ${commentDatabaseId}`);
-            }
-            console.log(`Found comment with node ID: ${comments[0].id}`);
-            return comments[0].id;
-        }
-        console.log(`No comments found with database ID: ${commentDatabaseId}`);
-        return null;
-    }
-    catch (error) {
-        console.log(`Error fetching comment node ID: ${error instanceof Error ? error.message : String(error)}`);
-        return null;
-    }
-};
 const getReviewNodeId = async (reviewDatabaseId, pullRequest) => {
     try {
         const { repository } = await octokit.graphql(`
@@ -240,57 +168,21 @@ const getReviewNodeId = async (reviewDatabaseId, pullRequest) => {
         return null;
     }
 };
-const minimizeExistingComments = async (pullRequest) => {
+const minimizeReview = async (pullRequest) => {
     console.log(`Minimizing existing content on PR #${pullRequest.number}`);
-    const review = await getExistingReview(pullRequest);
+    const review = await getReview(pullRequest);
     if (review) {
         console.log(`Found existing review with ID: ${review.id}`);
         const reviewNodeId = await getReviewNodeId(review.id, pullRequest);
         if (reviewNodeId) {
-            await minimizeReview(reviewNodeId, pullRequest);
+            await minimizeReviewById(reviewNodeId, pullRequest);
         }
     }
     else {
         console.log('No existing reviews found to minimize');
     }
-    const comments = await getExistingComments(pullRequest);
-    for (const comment of comments) {
-        console.log(`Processing comment with database ID: ${comment.id}`);
-        const nodeId = await getCommentNodeId(comment.id, pullRequest);
-        if (nodeId) {
-            await minimizeComment(nodeId, pullRequest);
-        }
-    }
 };
-const minimizeComment = async (commentNodeId, pullRequest) => {
-    try {
-        console.log(`Minimizing comment with node ID: ${commentNodeId}`);
-        const { minimizeComment: result } = await octokit.graphql(`
-      mutation MinimizeComment($input: MinimizeCommentInput!) {
-        minimizeComment(input: $input) {
-          minimizedComment {
-            isMinimized
-            minimizedReason
-          }
-        }
-      }
-    `, {
-            input: {
-                subjectId: commentNodeId,
-                classifier: onMinimizeCommentReason,
-                clientMutationId: `pr-lint-action-${pullRequest.number}-${Date.now()}`,
-            },
-        });
-        console.log(`Comment minimized successfully: ${JSON.stringify(result)}`);
-    }
-    catch (error) {
-        console.log(`Failed to minimize comment: ${error instanceof Error ? error.message : String(error)}`);
-        if (error instanceof Error && error.stack) {
-            console.log(`Stack trace: ${error.stack}`);
-        }
-    }
-};
-const minimizeReview = async (reviewNodeId, pullRequest) => {
+const minimizeReviewById = async (reviewNodeId, pullRequest) => {
     try {
         console.log(`Minimizing review with node ID: ${reviewNodeId}`);
         await octokit.graphql(`
@@ -318,7 +210,7 @@ const minimizeReview = async (reviewNodeId, pullRequest) => {
         }
         try {
             console.log(`Falling back to dismissing the review`);
-            const review = await getExistingReview(pullRequest);
+            const review = await getReview(pullRequest);
             if (review) {
                 await octokit.rest.pulls.dismissReview({
                     owner: pullRequest.owner,
