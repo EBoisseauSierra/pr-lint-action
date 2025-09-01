@@ -90,7 +90,7 @@ const dismissReview = async (pullRequest: {
   const review = await getExistingReview(pullRequest);
 
   if (review === undefined) {
-    console.log("Found no existing review");
+    console.log("Found no existing review ");
     return;
   }
 
