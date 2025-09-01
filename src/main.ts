@@ -33,8 +33,8 @@ export async function run(): Promise<void> {
     (githubContext.payload.pull_request?.title as string) ?? "";
   const comment = onFailedRegexComment.replace("%regex%", titleRegex.source);
 
-  debug(`Title Regex: ${titleRegex.source}`);
-  debug(`Title: ${title}`);
+  console.log(`Title Regex: ${titleRegex.source}`);
+  console.log(`Title: ${title}`);
 
   const titleMatchesRegex: boolean = titleRegex.test(title);
   if (!titleMatchesRegex) {
@@ -86,11 +86,11 @@ const dismissReview = async (pullRequest: {
   repo: string;
   number: number;
 }) => {
-  debug(`Trying to get existing review`);
+  console.log(`Trying to get existing review`);
   const review = await getExistingReview(pullRequest);
 
   if (review === undefined) {
-    debug("Found no existing review");
+    console.log("Found no existing review");
     return;
   }
 
@@ -103,7 +103,7 @@ const dismissReview = async (pullRequest: {
       body: onSucceededRegexDismissReviewComment,
     });
 
-    debug(`Updated existing review`);
+    console.log(`Updated existing review`);
   } else {
     await octokit.rest.pulls.dismissReview({
       owner: pullRequest.owner,
@@ -112,7 +112,7 @@ const dismissReview = async (pullRequest: {
       review_id: review.id,
       message: onSucceededRegexDismissReviewComment,
     });
-    debug(`Dismissed existing review`);
+    console.log(`Dismissed existing review`);
   }
 };
 
@@ -121,7 +121,8 @@ const getExistingReview = async (pullRequest: {
   repo: string;
   number: number;
 }) => {
-  debug(`Getting reviews`);
+  console.log(`Getting reviews`);
+  console.log("Getting reviews")
   const reviews = await octokit.rest.pulls.listReviews({
     owner: pullRequest.owner,
     repo: pullRequest.repo,
@@ -153,17 +154,17 @@ const minimizeReview = async (pullRequest: {
   repo: string;
   number: number;
 }) => {
-  debug(`Minimizing existing content on PR #${pullRequest.number}`);
+  console.log(`Minimizing existing content on PR #${pullRequest.number}`);
 
   const review = await getExistingReview(pullRequest);
   if (review) {
-    debug(`Found existing review with ID: ${review.id}`);
+    console.log(`Found existing review with ID: ${review.id}`);
     const reviewNodeId = await getReviewNodeId(review.id, pullRequest);
     if (reviewNodeId) {
       await minimizeReviewById(reviewNodeId, pullRequest);
     }
   } else {
-    debug('No existing reviews found to minimize');
+    console.log('No existing reviews found to minimize');
   }
 };
 
@@ -205,21 +206,21 @@ const getReviewNodeId = async (
 
     const pullRequestObj = repository?.pullRequest;
     if (!pullRequestObj) {
-      debug(`No PR found for number ${pullRequest.number}`);
+      console.log(`No PR found for number ${pullRequest.number}`);
       return null;
     }
 
     const review = pullRequestObj.reviews.nodes.find(node => node.databaseId === reviewDatabaseId);
 
     if (review) {
-      debug(`Found review with node ID: ${review.id}`);
+      console.log(`Found review with node ID: ${review.id}`);
       return review.id;
     }
 
-    debug(`No reviews found with database ID: ${reviewDatabaseId}`);
+    console.log(`No reviews found with database ID: ${reviewDatabaseId}`);
     return null;
   } catch (error) {
-    debug(`Error fetching review node ID: ${error instanceof Error ? error.message : String(error)}`);
+    console.log(`Error fetching review node ID: ${error instanceof Error ? error.message : String(error)}`);
     return null;
   }
 };
@@ -233,7 +234,7 @@ const minimizeReviewById = async (
   }
 ) => {
   try {
-    debug(`Minimizing review with node ID: ${reviewNodeId}`);
+    console.log(`Minimizing review with node ID: ${reviewNodeId}`);
     // PullRequestReview implements Minimizable interface,
     // so we can use 'minimizeComment' mutation (even though it's a review)
     await octokit.graphql<{
@@ -260,11 +261,11 @@ const minimizeReviewById = async (
       },
     });
 
-    debug(`Review minimized successfully`);
+    console.log(`Review minimized successfully`);
   } catch (error) {
-    debug(`Failed to minimize review: ${error instanceof Error ? error.message : String(error)}`);
+    console.log(`Failed to minimize review: ${error instanceof Error ? error.message : String(error)}`);
     if (error instanceof Error && error.stack) {
-      debug(`Stack trace: ${error.stack}`);
+      console.log(`Stack trace: ${error.stack}`);
     }
   }
 };
