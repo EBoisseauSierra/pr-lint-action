@@ -1,4 +1,4 @@
-import { getInput, debug, setFailed } from "@actions/core";
+import { getInput, setFailed } from "@actions/core";
 import { getOctokit, context } from "@actions/github";
 
 const GITHUB_ACTIONS_LOGIN = "github-actions[bot]";

@@ -29,8 +29,8 @@ async function run() {
     const pullRequest = githubContext.issue;
     const title = githubContext.payload.pull_request?.title ?? "";
     const comment = onFailedRegexComment.replace("%regex%", titleRegex.source);
-    (0, core_1.debug)(`Title Regex: ${titleRegex.source}`);
-    (0, core_1.debug)(`Title: ${title}`);
+    console.log(`Title Regex: ${titleRegex.source}`);
+    console.log(`Title: ${title}`);
     const titleMatchesRegex = titleRegex.test(title);
     if (!titleMatchesRegex) {
         if (onFailedRegexCreateReview) {
@@ -43,10 +43,10 @@ async function run() {
     else {
         if (onFailedRegexCreateReview) {
             console.log(`PR title matches regex, dismissing any existing reviews`);
-            await dismissReview(pullRequest);
             if (onSucceededRegexMinimizeComment) {
                 await minimizeReview(pullRequest);
             }
+            await dismissReview(pullRequest);
         }
     }
 }
@@ -72,12 +72,10 @@ const createOrUpdateReview = async (comment, pullRequest) => {
     }
 };
 const dismissReview = async (pullRequest) => {
-    (0, core_1.debug)(`Trying to get existing review`);
-    console.log("Trying to get existing review");
+    console.log(`Trying to get existing review`);
     const review = await getExistingReview(pullRequest);
     if (review === undefined) {
-        (0, core_1.debug)("Found no existing review");
-        console.log("Found no existing review");
+        console.log("Found no existing review ");
         return;
     }
     if (review.state === "COMMENTED") {
@@ -88,7 +86,6 @@ const dismissReview = async (pullRequest) => {
             review_id: review.id,
             body: onSucceededRegexDismissReviewComment,
         });
-        (0, core_1.debug)(`Updated existing review`);
         console.log(`Updated existing review`);
     }
     else {
@@ -99,18 +96,17 @@ const dismissReview = async (pullRequest) => {
             review_id: review.id,
             message: onSucceededRegexDismissReviewComment,
         });
-        (0, core_1.debug)(`Dismissed existing review`);
         console.log(`Dismissed existing review`);
     }
 };
 const getExistingReview = async (pullRequest) => {
-    (0, core_1.debug)(`Getting reviews`);
+    console.log(`Getting reviews`);
+    console.log("Getting reviews");
     const reviews = await octokit.rest.pulls.listReviews({
         owner: pullRequest.owner,
         repo: pullRequest.repo,
         pull_number: pullRequest.number,
     });
-    console.log(`Found ${reviews.data.length} reviews`);
     return reviews.data.find((review) => {
         return (review.user != null &&
             isGitHubActionUser(review.user.login) &&
@@ -125,11 +121,9 @@ const hasReviewedState = (state) => {
 };
 exports.hasReviewedState = hasReviewedState;
 const minimizeReview = async (pullRequest) => {
-    (0, core_1.debug)(`Minimizing existing content on PR #${pullRequest.number}`);
     console.log(`Minimizing existing content on PR #${pullRequest.number}`);
     const review = await getExistingReview(pullRequest);
     if (review) {
-        (0, core_1.debug)(`Found existing review with ID: ${review.id}`);
         console.log(`Found existing review with ID: ${review.id}`);
         const reviewNodeId = await getReviewNodeId(review.id, pullRequest);
         if (reviewNodeId) {
@@ -137,7 +131,6 @@ const minimizeReview = async (pullRequest) => {
         }
     }
     else {
-        (0, core_1.debug)('No existing reviews found to minimize');
         console.log('No existing reviews found to minimize');
     }
 };
@@ -163,29 +156,24 @@ const getReviewNodeId = async (reviewDatabaseId, pullRequest) => {
         });
         const pullRequestObj = repository?.pullRequest;
         if (!pullRequestObj) {
-            (0, core_1.debug)(`No PR found for number ${pullRequest.number}`);
             console.log(`No PR found for number ${pullRequest.number}`);
             return null;
         }
         const review = pullRequestObj.reviews.nodes.find(node => node.databaseId === reviewDatabaseId);
         if (review) {
-            (0, core_1.debug)(`Found review with node ID: ${review.id}`);
             console.log(`Found review with node ID: ${review.id}`);
             return review.id;
         }
-        (0, core_1.debug)(`No reviews found with database ID: ${reviewDatabaseId}`);
         console.log(`No reviews found with database ID: ${reviewDatabaseId}`);
         return null;
     }
     catch (error) {
-        (0, core_1.debug)(`Error fetching review node ID: ${error instanceof Error ? error.message : String(error)}`);
         console.log(`Error fetching review node ID: ${error instanceof Error ? error.message : String(error)}`);
         return null;
     }
 };
 const minimizeReviewById = async (reviewNodeId, pullRequest) => {
     try {
-        (0, core_1.debug)(`Minimizing review with node ID: ${reviewNodeId}`);
         console.log(`Minimizing review with node ID: ${reviewNodeId}`);
         await octokit.graphql(`
       mutation MinimizeComment($input: MinimizeCommentInput!) {
@@ -203,14 +191,11 @@ const minimizeReviewById = async (reviewNodeId, pullRequest) => {
                 clientMutationId: `pr-lint-action-review-${pullRequest.number}-${Date.now()}`,
             },
         });
-        (0, core_1.debug)(`Review minimized successfully`);
         console.log(`Review minimized successfully`);
     }
     catch (error) {
-        (0, core_1.debug)(`Failed to minimize review: ${error instanceof Error ? error.message : String(error)}`);
         console.log(`Failed to minimize review: ${error instanceof Error ? error.message : String(error)}`);
         if (error instanceof Error && error.stack) {
-            (0, core_1.debug)(`Stack trace: ${error.stack}`);
             console.log(`Stack trace: ${error.stack}`);
         }
     }
